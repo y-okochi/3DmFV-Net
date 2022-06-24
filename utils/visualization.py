@@ -10,6 +10,9 @@ import sys
 import pickle
 import tensorflow as tf
 
+BASE_DIR1 = os.path.dirname(os.path.join(os.path.abspath(__file__), "../", "../"))
+print(BASE_DIR1)
+sys.path.append(BASE_DIR1)
 import provider
 import utils
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -258,8 +261,10 @@ def make_segmentation_triplets_for_paper(path, cls='Chair', export=False):
     output_dir = path + '/triplet_images'
 
     if cls == 'all':
-        hdf5_data_dir = os.path.join(BASE_DIR, './hdf5_data')
+        hdf5_data_dir = os.path.join(BASE_DIR, os.pardir, './hdf5_data')
+        # all_obj_cat_file = os.path.join(hdf5_data_dir, 'all_object_categories.txt')
         all_obj_cat_file = os.path.join(hdf5_data_dir, 'all_object_categories.txt')
+        
         fin = open(all_obj_cat_file, 'r')
         lines = [line.rstrip() for line in fin.readlines()]
         objnames = [line.split()[0] for line in lines]
@@ -354,7 +359,7 @@ def visualize_fv_with_pc(fv, points, label_title=None, fig_title='figure', type=
     f, ax = plt.subplots(n_models, 2, squeeze=False)
     f.canvas.set_window_title(fig_title)
 
-    plt.get_current_fig_manager().window.wm_geometry(str(pos[0]) + "x" + str(pos[1]) + "+"+str(pos[2])+"+"+str(pos[3]))
+    # plt.get_current_fig_manager().window.wm_geometry(str(pos[0]) + "x" + str(pos[1]) + "+"+str(pos[2])+"+"+str(pos[3]))
 
     for i in range(n_models):
         cmap = "seismic"
@@ -380,7 +385,7 @@ def visualize_fv_with_pc(fv, points, label_title=None, fig_title='figure', type=
 
 
     if export:
-        plt.savefig(filename + '.pdf', format='pdf', bbox_inches='tight', dpi=1000)
+        plt.savefig(filename + '.jpg', format='jpg', bbox_inches='tight', dpi=1000)
 
 def visualize_single_fv_with_pc(fv, points, label_title=None, fig_title='figure', type='minmax', pos=[750,800,0,0], export=False, filename='fv_pc'):
     """ visualizes the fisher vector representation as an image
@@ -578,42 +583,52 @@ def visualize_fv_pc_clas():
     n_classes = 40
     clas = 'person'
     #Create new gaussian
-    subdev = 5
+    # subdev = 5
+    subdev = 1
     variance = 0.04
-    export = False
+    export = True
     display = True
-    exp_path = '/home/itzikbs/PycharmProjects/fisherpointnet/paper_images/'
+    exp_path = os.path.join(BASE_DIR, os.pardir, "paper_images/")
 
     shape_names = provider.getDataFiles( \
-        os.path.join(BASE_DIR, 'data/modelnet' + str(n_classes) + '_ply_hdf5_2048/shape_names.txt'))
+        os.path.join(BASE_DIR, os.pardir, 'data/modelnet' + str(n_classes) + '_ply_hdf5_2048/shape_names.txt'))
     shape_dict = {shape_names[i]: i for i in range(len(shape_names))}
 
-    gmm = utils.get_grid_gmm(subdivisions=[subdev, subdev, subdev], variance=variance)
+    gmm = utils.get_3d_grid_gmm(subdivisions=[subdev, subdev, subdev], variance=variance)
+    print(gmm)
     # compute fv
     w = tf.constant(gmm.weights_, dtype=tf.float32)
     mu = tf.constant(gmm.means_, dtype=tf.float32)
     sigma = tf.constant(gmm.covariances_, dtype=tf.float32)
 
     for clas in shape_dict:
+        print(f"cls: {clas}")
         points = provider.load_single_model_class(clas=clas, ind=0, test_train='train', file_idxs=0, num_points=1024,
                                                   n_classes=n_classes)
         points = np.expand_dims(points,0)
 
         points_tensor = tf.constant(points, dtype=tf.float32)  # convert points into a tensor
-        fv_tensor = tf_util.get_fv_minmax(points_tensor, w, mu, sigma, flatten=False)
-
+        # fv_tensor = tf_util.get_fv_minmax(points_tensor, w, mu, sigma, flatten=False)
+        # print(points)
+        # fv_tensor = tf_util.get_fv_tf(points_tensor, w, mu, sigma, flatten=False)
+        # fv_tensor = tf_util.get_3dmfv(points_tensor, w, mu, sigma, flatten=True)
+        fv_tensor = tf_util.get_3DmFV_np(points_tensor, w, mu, sigma)
         sess = tf_util.get_session(2)
         with sess:
-            fv = fv_tensor.eval()
+            # fv = fv_tensor.eval()
+            # fv = fv_tensor.numpy()
+            fv = fv_tensor
+            # print(fv)
         #
         # visualize_single_fv_with_pc(fv_train, points, label_title=clas,
         #                      fig_title='fv_pc', type='paper', pos=[750, 800, 0, 0], export=export,
         #                      filename=BASE_DIR + '/paper_images/fv_pc_' + clas)
 
-        visualize_fv(fv, gmm, label_title=[clas], max_n_images=5, normalization=True, export=export, display=display,
-                     filename=exp_path + clas+'_fv', n_scales=1, type='none', fig_title='Figure')
-        visualize_pc(points, label_title=clas, fig_title='figure', export=export, filename=exp_path +clas+'_pc')
-        plt.close('all')
+        # visualize_fv(fv, gmm, label_title=[clas], max_n_images=5, normalization=True, export=export, display=display, filename=exp_path + clas+'_fv', n_scales=1, type='none', fig_title='Figure')
+        print(f"path: {exp_path +clas+'_pc'}")
+        # visualize_pc(points, label_title=clas, fig_title='figure', export=export, filename=exp_path +clas+'_pc')
+        # plt.close('all')
+        visualize_fv_with_pc(fv, points, label_title=clas, fig_title='figure', type='minmax', pos=[750,800,0,0], export=True, filename=f'./paper_images/{clas}_fv_pc')
 
     #plt.show()
 
@@ -632,7 +647,7 @@ def main():
     #Create new gaussian
     subdev = 10
     variance = 0.01
-    gmm = utils.get_grid_gmm(subdivisions=[subdev, subdev, subdev], variance=variance)
+    gmm = utils.get_3d_grid_gmm(subdivisions=[subdev, subdev, subdev], variance=variance)
 
     class helper_struct():
         def __init__(self):
@@ -647,7 +662,7 @@ def main():
     n_gaussians = np.power(PARAMETERS.num_gaussians, 3) if PARAMETERS.gmm_type == 'grid' else PARAMETERS.num_gaussians
     points,_ = provider.load_single_model(model_idx = model_idx,test_train = 'train', file_idxs=0, num_points = num_points)
 
-    g_pts, g_probs = utils.get_gaussian_points(points, gmm, idx=gaussian_index, thresh=0.01)
+    # g_pts, g_probs = utils.get_gaussian_points(points, gmm, idx=gaussian_index, thresh=0.01)
     #draw_gaussian_points(points, g_pts, gmm, idx=gaussian_index, ax=None, display=True, color_val=g_probs)
 
     #fv = utils.fisher_vector(points, gmm, normalization=True)
@@ -662,7 +677,8 @@ def main():
 
 
 if __name__ == "__main__":
-    #main()
+    # main()
     visualize_fv_pc_clas()
     # path_to_test_results = '/home/itzikbs/PycharmProjects/fisherpointnet/log_seg/test_results'
+    # path_to_test_results = '.'
     # make_segmentation_triplets_for_paper(path_to_test_results, cls='all', export = True)

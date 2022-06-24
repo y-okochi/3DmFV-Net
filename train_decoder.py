@@ -11,14 +11,15 @@ import tensorflow as tf
 import multiprocessing as mp
 import pickle
 
-import visualization
-import provider
-import utils
-import time
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
 sys.path.append(os.path.join(BASE_DIR, 'models'))
 sys.path.append(os.path.join(BASE_DIR, 'utils'))
+import visualization
+import provider
+import utils
+import time
 import tf_util
 
 # ModelNet40/10 official train/test split

@@ -41,7 +41,7 @@ def rotate_point_cloud(batch_data):
           BxNx3 array, rotated batch of point clouds
     """
     rotated_data = np.zeros(batch_data.shape, dtype=np.float32)
-    for k in xrange(batch_data.shape[0]):
+    for k in range(batch_data.shape[0]):
         rotation_angle = np.random.uniform() * 2 * np.pi
         cosval = np.cos(rotation_angle)
         sinval = np.sin(rotation_angle)
@@ -78,7 +78,7 @@ def rotate_point_cloud_by_angle(batch_data, rotation_angle):
           BxNx3 array, rotated batch of point clouds
     """
     rotated_data = np.zeros(batch_data.shape, dtype=np.float32)
-    for k in xrange(batch_data.shape[0]):
+    for k in range(batch_data.shape[0]):
         #rotation_angle = np.random.uniform() * 128 * np.pi
         cosval = np.cos(rotation_angle)
         sinval = np.sin(rotation_angle)
@@ -97,7 +97,7 @@ def rotate_x_point_cloud_by_angle(batch_data, rotation_angle):
           BxNx3 array, rotated batch of point clouds
     """
     rotated_data = np.zeros(batch_data.shape, dtype=np.float32)
-    for k in xrange(batch_data.shape[0]):
+    for k in range(batch_data.shape[0]):
         #rotation_angle = np.random.uniform() * 128 * np.pi
         cosval = np.cos(rotation_angle)
         sinval = np.sin(rotation_angle)
@@ -117,7 +117,7 @@ def scale_point_cloud(batch_data, smin = 0.66, smax = 1.5):
           BxNx3 array, scaled batch of point clouds
     """
     scaled = np.zeros(batch_data.shape, dtype=np.float32)
-    for k in xrange(batch_data.shape[0]):
+    for k in range(batch_data.shape[0]):
         rotation_angle = np.random.uniform() * 2 * np.pi
         sx = np.random.uniform(smin, smax)
         sy = np.random.uniform(smin, smax)
@@ -213,6 +213,7 @@ def getDataFiles(list_filename):
     return [line.rstrip() for line in open(list_filename)]
 
 def load_h5(h5_filename, compensate=False, unify=False):
+    print("h5_filename", h5_filename)
     f = h5py.File(h5_filename)
     data = f['data'][:]
     label = f['label'][:]
@@ -276,7 +277,7 @@ def load_single_model_class(clas = 'table',ind=0,test_train = 'train', file_idxs
         FILES = getDataFiles( \
             os.path.join(BASE_DIR, 'data/modelnet40_ply_hdf5_2048/test_files.txt'))
     all_models_points, all_models_labels = loadDataFile(FILES[file_idxs])
-    if  isinstance(clas,basestring):
+    if  isinstance(clas, str):
         idxs = np.squeeze(np.where(np.squeeze(all_models_labels) == shape_dict[clas]))
     else:
         idxs = np.squeeze(np.where(np.squeeze(all_models_labels) == clas))
@@ -295,7 +296,7 @@ def load_dataset(num_points = 1024):
 
     for test_train in files:
         FILES = getDataFiles( \
-            os.path.join(BASE_DIR, 'data/modelnet40_ply_hdf5_2048/' + test_train + '_files.txt'))
+            os.path.join(BASE_DIR, os.pardir, 'data/modelnet40_ply_hdf5_2048/' + test_train + '_files.txt'))
 
         for fn in range(len(FILES)):
             all_models_points, labels = loadDataFile(FILES[fn])

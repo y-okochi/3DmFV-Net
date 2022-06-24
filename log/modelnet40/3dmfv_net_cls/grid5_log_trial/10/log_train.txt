@@ -1,0 +1,2 @@
+Namespace(batch_size=64, decay_rate=0.7, decay_step=200000, gmm_type='grid', gmm_variance=0.04, gpu=2, learning_rate=0.001, log_dir='log/modelnet40/3dmfv_net_cls/grid5_log_trial/10', max_epoch=200, model='3dmfv_net_cls', momentum=0.9, num_gaussians=5, num_point=1024, optimizer='adam', weight_decay=0.0)
+augmentation RSTJ = (False, True, True, True, False)

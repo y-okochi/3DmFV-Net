@@ -83,6 +83,7 @@ The convention of rotation around ``z``, followed by rotation around
 "xyz", pitch-roll-yaw, Cardan angles, or Tait-Bryan angles.
 '''
 
+import functools
 import math
 
 import numpy as np
@@ -187,7 +188,7 @@ def euler2mat(z=0, y=0, x=0):
                  [0, cosx, -sinx],
                  [0, sinx, cosx]]))
     if Ms:
-        return reduce(np.dot, Ms[::-1])
+        return functools.reduce(np.dot, Ms[::-1])
     return np.eye(3)
 
 

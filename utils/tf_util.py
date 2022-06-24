@@ -9,6 +9,7 @@ Date: February 2018
 
 import numpy as np
 import tensorflow as tf
+import tensorflow_probability as tfp
 import os
 
 def _variable_on_cpu(name, shape, initializer, use_fp16=False):
@@ -22,7 +23,7 @@ def _variable_on_cpu(name, shape, initializer, use_fp16=False):
     """
     with tf.device('/cpu:0'):
         dtype = tf.float16 if use_fp16 else tf.float32
-        var = tf.get_variable(name, shape, initializer=initializer, dtype=dtype)
+        var = tf.compat.v1.get_variable(name, shape, initializer=initializer, dtype=dtype)
     return var
 
 
@@ -44,13 +45,13 @@ def _variable_with_weight_decay(name, shape, stddev, wd, use_xavier=True):
       Variable Tensor
     """
     if use_xavier:
-        initializer = tf.contrib.layers.xavier_initializer()
+        initializer = tf.initializers.GlorotUniform()
     else:
-        initializer = tf.truncated_normal_initializer(stddev=stddev)
+        initializer = tf.compat.v1.truncated_normal_initializer(stddev=stddev)
     var = _variable_on_cpu(name, shape, initializer)
     if wd is not None:
         weight_decay = tf.multiply(tf.nn.l2_loss(var), wd, name='weight_loss')
-        tf.add_to_collection('losses', weight_decay)
+        tf.compat.v1.add_to_collection('losses', weight_decay)
     return var
 
 
@@ -87,8 +88,8 @@ def conv1d(inputs,
     Returns:
       Variable tensor
     """
-    with tf.variable_scope(scope) as sc:
-        num_in_channels = inputs.get_shape()[-1].value
+    with tf.compat.v1.variable_scope(scope) as sc:
+        num_in_channels = inputs.get_shape()[-1]
         kernel_shape = [kernel_size,
                         num_in_channels, num_output_channels]
         kernel = _variable_with_weight_decay('weights',
@@ -145,9 +146,9 @@ def conv2d(inputs,
     Returns:
       Variable tensor
     """
-    with tf.variable_scope(scope) as sc:
+    with tf.compat.v1.variable_scope(scope) as sc:
         kernel_h, kernel_w = kernel_size
-        num_in_channels = inputs.get_shape()[-1].value
+        num_in_channels = inputs.get_shape()[-1]
         kernel_shape = [kernel_h, kernel_w,
                         num_in_channels, num_output_channels]
         kernel = _variable_with_weight_decay('weights',
@@ -207,9 +208,9 @@ def conv2d_transpose(inputs,
 
     Note: conv2d(conv2d_transpose(a, num_out, ksize, stride), a.shape[-fv_noise], ksize, stride) == a
     """
-    with tf.variable_scope(scope) as sc:
+    with tf.compat.v1.variable_scope(scope) as sc:
         kernel_h, kernel_w = kernel_size
-        num_in_channels = inputs.get_shape()[-1].value
+        num_in_channels = inputs.get_shape()[-1]
         kernel_shape = [kernel_h, kernel_w,
                         num_output_channels, num_in_channels]  # reversed to conv2d
         kernel = _variable_with_weight_decay('weights',
@@ -228,9 +229,9 @@ def conv2d_transpose(inputs,
             return dim_size
 
         # caculate output shape
-        batch_size = inputs.get_shape()[0].value
-        height = inputs.get_shape()[1].value
-        width = inputs.get_shape()[2].value
+        batch_size = inputs.get_shape()[0]
+        height = inputs.get_shape()[1]
+        width = inputs.get_shape()[2]
         out_height = get_deconv_dim(height, stride_h, kernel_h, padding)
         out_width = get_deconv_dim(width, stride_w, kernel_w, padding)
         output_shape = [batch_size, out_height, out_width, num_output_channels]
@@ -284,9 +285,9 @@ def conv3d(inputs,
     Returns:
       Variable tensor
     """
-    with tf.variable_scope(scope) as sc:
+    with tf.compat.v1.variable_scope(scope) as sc:
         kernel_d, kernel_h, kernel_w = kernel_size
-        num_in_channels = inputs.get_shape()[-1].value
+        num_in_channels = inputs.get_shape()[-1]
         kernel_shape = [kernel_d, kernel_h, kernel_w,
                         num_in_channels, num_output_channels]
         kernel = _variable_with_weight_decay('weights',
@@ -330,8 +331,8 @@ def fully_connected(inputs,
     Returns:
       Variable tensor of size B x num_outputs.
     """
-    with tf.variable_scope(scope) as sc:
-        num_input_units = inputs.get_shape()[-1].value
+    with tf.compat.v1.variable_scope(scope) as sc:
+        num_input_units = inputs.get_shape()[-1]
         weights = _variable_with_weight_decay('weights',
                                               shape=[num_input_units, num_outputs],
                                               use_xavier=use_xavier,
@@ -366,7 +367,7 @@ def max_pool2d(inputs,
     Returns:
       Variable tensor
     """
-    with tf.variable_scope(scope) as sc:
+    with tf.compat.v1.variable_scope(scope) as sc:
         kernel_h, kernel_w = kernel_size
         stride_h, stride_w = stride
         outputs = tf.nn.max_pool(inputs,
@@ -392,7 +393,7 @@ def avg_pool2d(inputs,
     Returns:
       Variable tensor
     """
-    with tf.variable_scope(scope) as sc:
+    with tf.compat.v1.variable_scope(scope) as sc:
         kernel_h, kernel_w = kernel_size
         stride_h, stride_w = stride
         outputs = tf.nn.avg_pool(inputs,
@@ -418,7 +419,7 @@ def max_pool3d(inputs,
     Returns:
       Variable tensor
     """
-    with tf.variable_scope(scope) as sc:
+    with tf.compat.v1.variable_scope(scope) as sc:
         kernel_d, kernel_h, kernel_w = kernel_size
         stride_d, stride_h, stride_w = stride
         outputs = tf.nn.max_pool3d(inputs,
@@ -444,7 +445,7 @@ def avg_pool3d(inputs,
     Returns:
       Variable tensor
     """
-    with tf.variable_scope(scope) as sc:
+    with tf.compat.v1.variable_scope(scope) as sc:
         kernel_d, kernel_h, kernel_w = kernel_size
         stride_d, stride_h, stride_w = stride
         outputs = tf.nn.avg_pool3d(inputs,
@@ -468,8 +469,8 @@ def batch_norm_template(inputs, is_training, scope, moments_dims, bn_decay):
     Return:
         normed:        batch-normalized maps
     """
-    with tf.variable_scope(scope) as sc:
-        num_channels = inputs.get_shape()[-1].value
+    with tf.compat.v1.variable_scope(scope) as sc:
+        num_channels = inputs.get_shape()[-1]
         beta = tf.Variable(tf.constant(0.0, shape=[num_channels]),
                            name='beta', trainable=True)
         gamma = tf.Variable(tf.constant(1.0, shape=[num_channels]),
@@ -568,7 +569,7 @@ def dropout(inputs,
     Returns:
       tensor variable
     """
-    with tf.variable_scope(scope) as sc:
+    with tf.compat.v1.variable_scope(scope) as sc:
         outputs = tf.cond(is_training,
                           lambda: tf.nn.dropout(inputs, keep_prob, noise_shape),
                           lambda: inputs)
@@ -585,10 +586,10 @@ def get_3dmfv(points, w, mu, sigma, flatten=True):
     :param sigma: B X n_gaussians X 64 tensor of stddev of diagonal covariance
     :return: fv: B X 7*n_gaussians tensor of the fisher vector
     """
-    n_batches = points.shape[0].value
-    n_points = points.shape[1].value
-    n_gaussians = mu.shape[0].value
-    D = mu.shape[1].value
+    n_batches = points.shape[0]
+    n_points = points.shape[1]
+    n_gaussians = mu.shape[0]
+    D = mu.shape[1]
 
     #Expand dimension for batch compatibility
     batch_sig = tf.tile(tf.expand_dims(sigma,0),[n_points, 1, 1])  #n_points X n_gaussians X D
@@ -603,7 +604,7 @@ def get_3dmfv(points, w, mu, sigma, flatten=True):
     w_per_batch_per_d = tf.tile(tf.expand_dims(tf.expand_dims(w, 0), -1), [n_batches, 1, 3*D]) #n_batches X n_gaussians X 128*D (D for min and D for max)
 
     #Define multivariate noraml distributions
-    mvn = tf.contrib.distributions.MultivariateNormalDiag(loc=batch_mu, scale_diag=batch_sig)
+    mvn = tfp.distributions.MultivariateNormalDiag(loc=batch_mu, scale_diag=batch_sig)
     #Compute probability per point
     p_per_point = mvn.prob(batch_points)
 
@@ -645,13 +646,96 @@ def get_3dmfv(points, w, mu, sigma, flatten=True):
 
     if flatten:
         #flatten d_mu and d_sigma
-        d_pi = tf.contrib.layers.flatten(tf.transpose(d_pi, perm=[0, 2, 1]))
-        d_mu = tf.contrib.layers.flatten(tf.transpose(d_mu,perm=[0,2,1]))
-        d_sigma = tf.contrib.layers.flatten(tf.transpose(d_sigma,perm=[0,2,1]))
+        d_pi = tf.compat.v1.layers.flatten(tf.transpose(d_pi, perm=[0, 2, 1]))
+        d_mu = tf.compat.v1.layers.flatten(tf.transpose(d_mu,perm=[0,2,1]))
+        d_sigma = tf.compat.v1.layers.flatten(tf.transpose(d_sigma,perm=[0,2,1]))
         fv  = tf.concat([d_pi, d_mu, d_sigma], axis=1)
     else:
         fv = tf.concat([d_pi, d_mu, d_sigma], axis=2)
         fv = tf.transpose(fv, perm=[0, 2, 1])
+
+    return fv
+
+def l2_normalize(v, dim=1):
+    #normalize a vector along a dimension
+    #INPUT:
+    # v: a vector or matrix to normalize
+    # dim : the dimension along which to normalize
+    #OUTPUT: normalized v along dim
+    norm = np.linalg.norm(v, axis=dim)
+    if norm.all() == 0:
+       return v
+    return v / norm
+
+def get_3DmFV_np(points, w, mu, sigma, normalize=True):
+    """
+       Compute the 3D modified fisher vectors given the gmm model parameters (w,mu,sigma) and a set of points
+       For faster performance (large batches) use the tensorflow version
+
+       :param points: B X N x 3 tensor of XYZ points
+       :param w: B X n_gaussians tensor of gaussian weights
+       :param mu: B X n_gaussians X 3 tensor of gaussian cetnters
+       :param sigma: B X n_gaussians X 3 tensor of stddev of diagonal covariance
+       :return: fv: B X 20*n_gaussians tensor of the fisher vector
+       """
+    n_batches = points.shape[0]
+    n_points = points.shape[1]
+    n_gaussians = mu.shape[0]
+    D = mu.shape[1]
+
+    # Expand dimension for batch compatibility
+    batch_sig = np.tile(np.expand_dims(sigma, 0), [n_points, 1, 1])  # n_points X n_gaussians X D
+    batch_sig = np.tile(np.expand_dims(batch_sig, 0), [n_batches, 1, 1, 1])  # n_batches X n_points X n_gaussians X D
+    batch_mu = np.tile(np.expand_dims(mu, 0), [n_points, 1, 1])  # n_points X n_gaussians X D
+    batch_mu = np.tile(np.expand_dims(batch_mu, 0), [n_batches, 1, 1, 1])  # n_batches X n_points X n_gaussians X D
+    batch_w = np.tile(np.expand_dims(np.expand_dims(w, 0), 0), [n_batches, n_points,
+                                                                1])  # n_batches X n_points X n_guassians X D  - should check what happens when weights change
+    batch_points = np.tile(np.expand_dims(points, -2), [1, 1, n_gaussians,
+                                                        1])  # n_batches X n_points X n_gaussians X D  # Generating the number of points for each gaussian for separate computation
+
+    # Compute derivatives
+
+    w_per_batch_per_d = np.tile(np.expand_dims(np.expand_dims(w, 0), -1),
+                                [n_batches, 1, 3*D])  # n_batches X n_gaussians X D (D for min and D for max)
+
+    # Define multivariate noraml distributions
+    # Compute probability per point
+    p_per_point = (1.0 / (np.power(2.0 * np.pi, D / 2.0) * np.power(batch_sig[:, :, :, 0], D))) * np.exp(
+        -0.5 * np.sum(np.square((batch_points - batch_mu) / batch_sig), axis=3))
+
+    w_p = p_per_point
+    Q = w_p  # enforcing the assumption that the sum is 1
+    Q_per_d = np.tile(np.expand_dims(Q, -1), [1, 1, 1, D])
+
+    d_pi_all = np.expand_dims((Q - batch_w) / (np.sqrt(batch_w)), -1)
+    d_pi = np.concatenate([np.max(d_pi_all, axis=1), np.sum(d_pi_all, axis=1)], axis=2)
+
+    d_mu_all = Q_per_d * (batch_points - batch_mu) / batch_sig
+    d_mu = (1 / (np.sqrt(w_per_batch_per_d))) * np.concatenate([np.max(d_mu_all, axis=1), np.min(d_mu_all, axis=1), np.sum(d_mu_all, axis=1)], axis=2)
+
+    d_sig_all = Q_per_d * (np.square((batch_points - batch_mu) / batch_sig) - 1)
+    d_sigma = (1 / (np.sqrt(2 * w_per_batch_per_d))) * np.concatenate([np.max(d_sig_all, axis=1), np.min(d_sig_all, axis=1), np.sum(d_sig_all, axis=1)], axis=2)
+
+    # number of points  normaliation
+    d_pi = d_pi / n_points
+    d_mu = d_mu / n_points
+    d_sigma =d_sigma / n_points
+
+    if normalize:
+        # Power normalization
+        alpha = 0.5
+        d_pi = np.sign(d_pi) * np.power(np.abs(d_pi), alpha)
+        d_mu = np.sign(d_mu) * np.power(np.abs(d_mu), alpha)
+        d_sigma = np.sign(d_sigma) * np.power(np.abs(d_sigma), alpha)
+    
+        # L2 normaliation (gausianが1x1x1だと-1か1になるのでやらない)
+        # d_pi = np.array([l2_normalize(d_pi[i, :, :], dim=0) for i in range (n_batches)])
+        # d_mu = np.array([l2_normalize(d_mu[i, :,:], dim=0) for i in range (n_batches)])
+        # d_sigma = np.array([l2_normalize(d_sigma[i, :, :], dim=0) for i in range (n_batches)])
+
+
+    fv = np.concatenate([d_pi, d_mu, d_sigma], axis=2)
+    fv = np.transpose(fv, axes=[0, 2, 1])
 
     return fv
 
@@ -669,10 +753,10 @@ def get_3dmfv_sym(points, w, mu, sigma, sym_type='max', flatten=True):
         fv: B X 7*n_gaussians tensor of the fisher vector
         sym_type: string 'max' or 'min', or 'ss'
     """
-    n_batches = points.shape[0].value
-    n_points = points.shape[1].value
-    n_gaussians = mu.shape[0].value
-    D = mu.shape[1].value
+    n_batches = points.shape[0]
+    n_points = points.shape[1]
+    n_gaussians = mu.shape[0]
+    D = mu.shape[1]
 
     #Expand dimension for batch compatibility
     batch_sig = tf.tile(tf.expand_dims(sigma,0),[n_points, 1, 1])  #n_points X n_gaussians X D
@@ -731,9 +815,9 @@ def get_3dmfv_sym(points, w, mu, sigma, sym_type='max', flatten=True):
 
     if flatten:
         #flatten d_mu and d_sigma
-        d_pi = tf.contrib.layers.flatten(tf.transpose(d_pi, perm=[0, 2, 1]))
-        d_mu = tf.contrib.layers.flatten(tf.transpose(d_mu,perm=[0,2,1]))
-        d_sigma = tf.contrib.layers.flatten(tf.transpose(d_sigma,perm=[0,2,1]))
+        d_pi = tf.compat.v1.layers.flatten(tf.transpose(d_pi, perm=[0, 2, 1]))
+        d_mu = tf.compat.v1.layers.flatten(tf.transpose(d_mu,perm=[0,2,1]))
+        d_sigma = tf.compat.v1.layers.flatten(tf.transpose(d_sigma,perm=[0,2,1]))
         fv  = tf.concat([d_pi, d_mu, d_sigma], axis=1)
     else:
         fv = tf.concat([d_pi, d_mu, d_sigma], axis=2)
@@ -753,10 +837,10 @@ def get_fv_tf(points, w, mu, sigma, flatten=True, normalize=True):
     Output:
         fv: B X 7*n_gaussians tensor of the fisher vector
     """
-    n_batches = points.shape[0].value
-    n_points = points.shape[1].value
-    n_gaussians = mu.shape[0].value
-    D = mu.shape[1].value
+    n_batches = points.shape[0]
+    n_points = points.shape[1]
+    n_gaussians = mu.shape[0]
+    D = mu.shape[1]
 
     #Expand dimension for batch compatibility
     batch_sig = tf.tile(tf.expand_dims(sigma,0),[n_points, 1, 1])  #n_points X n_gaussians X D
@@ -771,7 +855,7 @@ def get_fv_tf(points, w, mu, sigma, flatten=True, normalize=True):
     w_per_batch_per_d = tf.tile(tf.expand_dims(tf.expand_dims(w, 0), -1), [n_batches, 1, D]) #n_batches X n_gaussians X 128*D (D for min and D for max)
 
     #Define multivariate noraml distributions
-    mvn = tf.contrib.distributions.MultivariateNormalDiag(loc=batch_mu, scale_diag=batch_sig)
+    mvn = tfp.distributions.MultivariateNormalDiag(loc=batch_mu, scale_diag=batch_sig)
     #Compute probability per point
     p_per_point = mvn.prob(batch_points)
 
@@ -803,9 +887,9 @@ def get_fv_tf(points, w, mu, sigma, flatten=True, normalize=True):
 
     if flatten:
         #flatten d_mu and d_sigma
-        d_pi = tf.contrib.layers.flatten(tf.transpose(d_pi, perm=[0, 2, 1]))
-        d_mu = tf.contrib.layers.flatten(tf.transpose(d_mu,perm=[0,2,1]))
-        d_sigma = tf.contrib.layers.flatten(tf.transpose(d_sigma,perm=[0,2,1]))
+        d_pi = tf.compat.v1.layers.flatten(tf.transpose(d_pi, perm=[0, 2, 1]))
+        d_mu = tf.compat.v1.layers.flatten(tf.transpose(d_mu,perm=[0,2,1]))
+        d_sigma = tf.compat.v1.layers.flatten(tf.transpose(d_sigma,perm=[0,2,1]))
         fv  = tf.concat([d_pi, d_mu, d_sigma], axis=1)
     else:
         fv = tf.concat([d_pi, d_mu, d_sigma], axis=2)
@@ -826,10 +910,10 @@ def get_fv_tf_no_mvn(points, w, mu, sigma, flatten=True, normalize=True):
     Output:
         fv: B X 7*n_gaussians tensor of the fisher vector
     """
-    n_batches = points.shape[0].value
-    n_points = points.shape[1].value
-    n_gaussians = mu.shape[0].value
-    D = mu.shape[1].value
+    n_batches = points.shape[0]
+    n_points = points.shape[1]
+    n_gaussians = mu.shape[0]
+    D = mu.shape[1]
 
     #Expand dimension for batch compatibility
     batch_sig = tf.tile(tf.expand_dims(sigma,0),[n_points, 1, 1])  #n_points X n_gaussians X D
@@ -882,9 +966,9 @@ def get_fv_tf_no_mvn(points, w, mu, sigma, flatten=True, normalize=True):
 
     if flatten:
         #flatten d_mu and d_sigma
-        d_pi = tf.contrib.layers.flatten(tf.transpose(d_pi, perm=[0, 2, 1]))
-        d_mu = tf.contrib.layers.flatten(tf.transpose(d_mu,perm=[0,2,1]))
-        d_sigma = tf.contrib.layers.flatten(tf.transpose(d_sigma,perm=[0,2,1]))
+        d_pi = tf.compat.v1.layers.flatten(tf.transpose(d_pi, perm=[0, 2, 1]))
+        d_mu = tf.compat.v1.layers.flatten(tf.transpose(d_mu,perm=[0,2,1]))
+        d_sigma = tf.compat.v1.layers.flatten(tf.transpose(d_sigma,perm=[0,2,1]))
         fv  = tf.concat([d_pi, d_mu, d_sigma], axis=1)
     else:
         fv = tf.concat([d_pi, d_mu, d_sigma], axis=2)
@@ -905,12 +989,12 @@ def get_3dmfv_seg(points, w, mu, sigma, flatten=True, original_n_points=None):
         fv: B X 20*n_gaussians tensor of the fisher vector
         fv_per_point: B X N X 20*n_gaussians  tensor of the fisher vector
     """
-    n_gaussians = mu.shape[0].value
-    D = mu.shape[1].value
-    n_batches = points.shape[0].value
+    n_gaussians = mu.shape[0]
+    D = mu.shape[1]
+    n_batches = points.shape[0]
 
     if original_n_points is None:
-        n_points = points.shape[1].value
+        n_points = points.shape[1]
     else:
         n_points =  original_n_points
 
@@ -959,7 +1043,7 @@ def get_3dmfv_seg(points, w, mu, sigma, flatten=True, original_n_points=None):
     d_mu = tf.sign(d_mu) * tf.pow(tf.maximum(tf.abs(d_mu),epsilon), alpha)
     d_sigma = tf.sign(d_sigma) * tf.pow(tf.maximum(tf.abs(d_sigma),epsilon), alpha)
     
-    # L2 normaliation
+    # L2 normaliation (gausianが1x1x1だと-1か1になるのでやらない)
     d_pi = tf.nn.l2_normalize(d_pi, dim=1)
     d_mu = tf.nn.l2_normalize(d_mu, dim=1)
     d_sigma = tf.nn.l2_normalize(d_sigma, dim=1)
@@ -967,9 +1051,9 @@ def get_3dmfv_seg(points, w, mu, sigma, flatten=True, original_n_points=None):
 
     if flatten:
         #flatten d_mu and d_sigma
-        d_pi = tf.contrib.layers.flatten(tf.transpose(d_pi, perm=[0, 2, 1]))
-        d_mu = tf.contrib.layers.flatten(tf.transpose(d_mu,perm=[0,2,1]))
-        d_sigma = tf.contrib.layers.flatten(tf.transpose(d_sigma,perm=[0,2,1]))
+        d_pi = tf.compat.v1.layers.flatten(tf.transpose(d_pi, perm=[0, 2, 1]))
+        d_mu = tf.compat.v1.layers.flatten(tf.transpose(d_mu,perm=[0,2,1]))
+        d_sigma = tf.compat.v1.layers.flatten(tf.transpose(d_sigma,perm=[0,2,1]))
         fv  = tf.concat([d_pi, d_mu, d_sigma], axis=1)
     else:
         fv = tf.concat([d_pi, d_mu, d_sigma], axis=2)
@@ -988,7 +1072,7 @@ def get_session(gpu_idx, limit_gpu=True):
     Output:
         sess: a tensorflow session
     '''
-    config = tf.ConfigProto()
+    config = tf.compat.v1.ConfigProto()
     config.gpu_options.allow_growth = True
     config.allow_soft_placement = True
     config.log_device_placement = False
@@ -998,7 +1082,7 @@ def get_session(gpu_idx, limit_gpu=True):
         os.environ["CUDA_VISIBLE_DEVICES"] = gpu_idx
     else:
         os.environ["CUDA_VISIBLE_DEVICES"] = "0, 1, 2, 3" # Change according to your setup
-    sess = tf.Session(config=config)
+    sess = tf.compat.v1.Session(config=config)
     return sess
 
 
